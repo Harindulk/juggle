@@ -3,6 +3,7 @@ import ServiceManagement
 
 let claudeBundleID = "com.anthropic.claudefordesktop"
 let repoURL = URL(string: "https://github.com/Harindulk/juggle")!
+let coffeeURL = URL(string: "https://buymeacoffee.com/harindulk")!
 /// JUGGLE_DEMO=1: made-up accounts and chats for screenshots. Opens, quits and copies nothing.
 /// JUGGLE_DEMO=menu: the same, with the menu bar menu opened instead of the Chats window.
 let demoMode = ["1", "menu"].contains(ProcessInfo.processInfo.environment["JUGGLE_DEMO"])
@@ -565,6 +566,7 @@ struct MenuContent: View {
         Divider()
         Button("About Juggle") { NSApp.orderFrontStandardAboutPanel(); NSApp.activate() }
         Button("Juggle on GitHub") { NSWorkspace.shared.open(repoURL) }
+        Button("Buy Me a Coffee…") { NSWorkspace.shared.open(coffeeURL) }
         Button("Quit Juggle") { NSApp.terminate(nil) }.keyboardShortcut("q")
     }
 }

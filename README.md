@@ -108,6 +108,10 @@ To take screenshots without your own accounts in them, run Juggle with made-up d
 
 Bug reports and pull requests are welcome. Run `./build.sh` before sending a change; it fails if the self-check in `Tests/main.swift` does.
 
+## Support
+
+Juggle is free and stays free. If it saves you some hassle, you can [buy me a coffee](https://buymeacoffee.com/harindulk). Bug reports and stars help too.
+
 ## License
 
 [MIT](LICENSE). Claude is a trademark of Anthropic, PBC. Juggle is an independent project.
