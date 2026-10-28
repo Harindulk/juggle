@@ -8,6 +8,9 @@ Juggle is a small menu bar app for people with more than one Claude account: wor
 
 It's an unofficial community tool. It isn't made by, affiliated with or endorsed by Anthropic.
 
+<p align="center"><img src="docs/menu.png" width="330" alt="Juggle's menu: three accounts with their emails, two open"> <img src="docs/chats.png" width="520" alt="The Chats window, explaining three chats hidden under an old sign-in"></p>
+<p align="center"><sub>Screenshots use demo data (<code>JUGGLE_DEMO=1</code>).</sub></p>
+
 ## The problem
 
 The Claude desktop app signs in to one account at a time. The usual workaround is to start a second copy with Chromium's `--user-data-dir` flag, and it mostly works, but:
@@ -99,6 +102,9 @@ The first time Juggle brings back a Claude window you'd closed, macOS asks wheth
 Quit Juggle from its menu and move `/Applications/Juggle.app` to the Trash. Your Claude accounts and chats stay where they are. To remove Juggle's settings too, delete `~/Library/Application Support/Juggle`.
 
 ## Contributing
+
+To take screenshots without your own accounts in them, run Juggle with made-up data: `JUGGLE_DEMO=1 build/Juggle.app/Contents/MacOS/Juggle` opens the Chats window, and `JUGGLE_DEMO=menu` opens the menu. Demo mode never opens, quits or copies anything.
+
 
 Bug reports and pull requests are welcome. Run `./build.sh` before sending a change; it fails if the self-check in `Tests/main.swift` does.
 

@@ -3,6 +3,10 @@ import ServiceManagement
 
 let claudeBundleID = "com.anthropic.claudefordesktop"
 let repoURL = URL(string: "https://github.com/Harindulk/juggle")!
+/// JUGGLE_DEMO=1: made-up accounts and chats for screenshots. Opens, quits and copies nothing.
+/// JUGGLE_DEMO=menu: the same, with the menu bar menu opened instead of the Chats window.
+let demoMode = ["1", "menu"].contains(ProcessInfo.processInfo.environment["JUGGLE_DEMO"])
+let demoMenu = ProcessInfo.processInfo.environment["JUGGLE_DEMO"] == "menu"
 
 struct Profile: Identifiable, Equatable {
     let path: String, name: String, pids: [Int32], account: String?, email: String?
@@ -42,6 +46,7 @@ struct Store: Codable {
     private let chatCache = ChatCache()
 
     init() {
+        if demoMode { loadDemo(); return }
         if let d = try? Data(contentsOf: URL(fileURLWithPath: storeFile)), let s = try? JSONDecoder().decode(Store.self, from: d) { store = s }
         claudeApp = findClaudeApp()
         version = claudeApp.flatMap(appVersion)
@@ -52,7 +57,7 @@ struct Store: Codable {
 
     /// Polls `ps` and the profile folders off the main thread, then applies the result here.
     func refresh() {
-        guard !polling else { return }
+        guard !polling, !demoMode else { return }
         polling = true
         let known = Set(store.names.keys)
         Task.detached(priority: .utility) {
@@ -124,11 +129,13 @@ struct Store: Codable {
     }
 
     /// Fresh from `ps`, for decisions that must not use the last poll (launching, removing, copying).
-    private func runningNow() -> [String: [Int32]] { verified(runningProfiles(ps: run("/bin/ps", "-xo", "pid=,command="))) }
+    private func runningNow() -> [String: [Int32]] {
+        if demoMode { return Dictionary(uniqueKeysWithValues: profiles.filter(\.running).map { ($0.path, $0.pids) }) }
+        return verified(runningProfiles(ps: run("/bin/ps", "-xo", "pid=,command="))) }
 
     /// Chats, and emails we don't know yet, come from files that can add up to megabytes, so they load off the main thread.
     func reloadChats() {
-        guard !loading else { return }
+        guard !loading, !demoMode else { return }
         loading = true
         lastLoad = Date()
         let paths = profiles.map(\.path)
@@ -188,7 +195,7 @@ struct Store: Codable {
     private func launch(_ path: String) { launch(path, running: runningNow()) }
 
     private func launch(_ path: String, running: [String: [Int32]]) {
-        guard let app = claudeApp else { return claudeMissing() }
+        guard let app = claudeApp, !demoMode else { return claudeMissing() }
         // Claude doesn't stop a second copy opening on the same profile, and two copies can clobber each other's data.
         if running[path] != nil { return }
         if let t = launching[path], Date().timeIntervalSince(t) < 20 { return }  // still starting up
@@ -200,6 +207,7 @@ struct Store: Codable {
     }
 
     private func claudeMissing() {
+        if demoMode { return }
         let a = NSAlert()
         a.messageText = "Claude isn't installed"
         a.informativeText = "Juggle opens your accounts in the Claude desktop app. Install it, then try again."
@@ -370,6 +378,28 @@ struct Store: Codable {
         }
     }
 
+    private func loadDemo() {
+        if demoMenu { DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { clickStatusItem() } }
+        claudeApp = "/Applications/Claude.app"
+        let main = mainProfile, work = supportDir + "/Claude-Work", client = supportDir + "/Claude-Client"
+        store.emails = ["main": "sam@example.com", "work": "sam@acme.example", "client": "sam@studio.example", "old": "sam@oldjob.example"]
+        store.names = [client: "Client Studio"]
+        profiles = [(main, "main", [101]), (work, "work", [102]), (client, "client", [])].map { p, a, pids in
+            Profile(path: p, name: store.names[p] ?? defaultName(p), pids: pids, account: a, email: store.emails[a])
+        }
+        let now = Date()
+        chats = [
+            (work, "work", "Fix flaky checkout tests", 0.2, false), (main, "main", "Plan a weekend trip to Kandy", 1, false),
+            (work, "work", "Migrate billing to the new API", 3, false), (client, "client", "Landing page copy, round two", 5, false),
+            (main, "old", "Portfolio site redesign", 26, false), (work, "work", "Review the Q4 roadmap doc", 30, false),
+            (main, "main", "Learn SwiftUI menus", 50, true), (main, "old", "Interview prep notes", 70, false),
+            (client, "client", "Logo feedback summary", 96, false), (main, "old", "Resume rewrite", 140, false),
+        ].enumerated().map { i, c in
+            Chat(profile: c.0, account: c.1, file: "\(c.0)/claude-code-sessions/\(c.1)/org/local_demo\(i).json", title: c.2,
+                 lastActivity: now - c.3 * 3600, archived: c.4)
+        }
+    }
+
     // MARK: Start at login
 
     var startAtLogin: Bool { SMAppService.mainApp.status == .enabled }
@@ -382,6 +412,12 @@ struct Store: Codable {
 }
 
 // MARK: System helpers
+
+/// Opens our own menu bar menu, for demo screenshots.
+@MainActor func clickStatusItem() {
+    func find(_ v: NSView) -> NSButton? { (v as? NSButton) ?? v.subviews.lazy.compactMap(find).first }
+    for w in NSApp.windows where w.className.contains("StatusBar") { if let b = w.contentView.flatMap(find) { b.performClick(nil); return } }
+}
 
 /// Update events only, so the auto-reopen can be checked after a real Claude update.
 func log(_ line: String) {
@@ -485,7 +521,8 @@ struct MenuContent: View {
         }
         Section("Accounts") {
             ForEach(hub.profiles) { p in
-                Button { hub.open(p) } label: { Label(p.title, systemImage: p.running ? "circle.fill" : "circle") }
+                // Text dots, not SF Symbols: menu bar menus don't draw a Label's image.
+                Button((p.running ? "●  " : "○  ") + p.title) { hub.open(p) }
             }
         }
         ForEach(hub.profiles.filter { $0.pids.count > 1 }) { p in
@@ -623,6 +660,6 @@ struct Banner: View {
         MenuBarExtra { MenuContent(hub: hub) } label: { Image(nsImage: menuBarIcon) }
         Window("Chats", id: "chats") { ChatsView(hub: hub) }
             .defaultSize(width: 680, height: 520)
-            .defaultLaunchBehavior(.suppressed)
+            .defaultLaunchBehavior(demoMode && !demoMenu ? .presented : .suppressed)
     }
 }
