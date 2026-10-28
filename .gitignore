@@ -1,0 +1,5 @@
+build/
+.DS_Store
+# private working notes never go in this repo
+CLAUDE.md
+notes/
